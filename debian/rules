@@ -1,0 +1,23 @@
+#!/usr/bin/make -f
+include /usr/share/dpkg/default.mk
+
+%:
+	dh $@
+
+override_dh_auto_clean:
+override_dh_auto_build:
+override_dh_auto_install:
+
+override_dh_clean:
+	dh_clean
+	rm -fr debian/ublk-drv-dkms
+
+override_dh_install:
+	mkdir -p debian/ublk-drv-dkms/usr/src
+	cp -a src/ debian/ublk-drv-dkms/usr/src/ublk-drv-$(DEB_VERSION_UPSTREAM)
+
+	dh_dkms -V
+	dh_install
+
+override_dh_dkms:
+	dh_dkms -V $(DEB_VERSION_UPSTREAM)

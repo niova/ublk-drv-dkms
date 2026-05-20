@@ -1,0 +1,13 @@
+Source: ublk-drv-dkms
+Section: kernel
+Priority: optional
+Maintainer: Bernd Schubert <bernd.schubert1@gmail.com>
+Build-Depends: debhelper-compat (= 13), dkms, dh-dkms
+Standards-Version: 4.6.2
+
+Package: ublk-drv-dkms
+Architecture: all
+Depends: dkms (>= 2.1), ${misc:Depends}
+Description: DKMS module for the ublk block driver
+ Out-of-tree DKMS package for the Linux ublk userspace block device driver.
+ The module is automatically rebuilt against new kernel versions via DKMS.

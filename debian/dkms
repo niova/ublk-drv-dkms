@@ -1,0 +1,7 @@
+PACKAGE_NAME="ublk-drv"
+PACKAGE_VERSION="#MODULE_VERSION#"
+MAKE[0]="./build.sh"
+BUILT_MODULE_NAME[0]="ublk_drv"
+BUILT_MODULE_LOCATION[0]="build-output"
+DEST_MODULE_LOCATION[0]="/updates/dkms"
+AUTOINSTALL="yes"

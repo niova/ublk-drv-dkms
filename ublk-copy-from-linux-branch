@@ -1,0 +1,74 @@
+#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+usage() {
+    echo "Usage: $0 [--version VER] <linux-dir>" >&2
+    exit 1
+}
+
+VERSION=""
+LINUX_DIR=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --version)
+            [[ $# -lt 2 ]] && usage
+            VERSION="$2"
+            shift 2
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            usage
+            ;;
+        *)
+            LINUX_DIR="$1"
+            shift
+            ;;
+    esac
+done
+
+[[ -z "$LINUX_DIR" ]] && usage
+[[ ! -d "$LINUX_DIR" ]] && { echo "Error: '$LINUX_DIR' is not a directory" >&2; exit 1; }
+
+if [[ -z "$VERSION" ]]; then
+    linux_makefile="$LINUX_DIR/Makefile"
+    [[ ! -f "$linux_makefile" ]] && { echo "Error: '$linux_makefile' not found" >&2; exit 1; }
+
+    kver=$(awk '/^VERSION[[:space:]]*=/{print $3}' "$linux_makefile")
+    patchlevel=$(awk '/^PATCHLEVEL[[:space:]]*=/{print $3}' "$linux_makefile")
+    sublevel=$(awk '/^SUBLEVEL[[:space:]]*=/{print $3}' "$linux_makefile")
+
+    [[ -z "$kver" || -z "$patchlevel" ]] && {
+        echo "Error: could not parse VERSION/PATCHLEVEL from '$linux_makefile'" >&2
+        exit 1
+    }
+
+    if [[ -n "$sublevel" && "$sublevel" -ne 0 ]]; then
+        VERSION="${kver}.${patchlevel}.${sublevel}"
+    else
+        VERSION="${kver}.${patchlevel}"
+    fi
+fi
+
+DEST="$SCRIPT_DIR/src/$VERSION"
+mkdir -p "$DEST/uapi/linux"
+
+SRC_DRV="$LINUX_DIR/drivers/block/ublk_drv.c"
+SRC_HDR="$LINUX_DIR/include/uapi/linux/ublk_cmd.h"
+
+[[ ! -f "$SRC_DRV" ]] && { echo "Error: '$SRC_DRV' not found" >&2; exit 1; }
+[[ ! -f "$SRC_HDR" ]] && { echo "Error: '$SRC_HDR' not found" >&2; exit 1; }
+
+cp "$SRC_DRV" "$DEST/ublk_drv.c"
+sed -i 's|#include <uapi/linux/ublk_cmd\.h>|#include "uapi/linux/ublk_cmd.h"|' "$DEST/ublk_drv.c"
+
+cp "$SRC_HDR" "$DEST/uapi/linux/ublk_cmd.h"
+
+cp "$SCRIPT_DIR/Makefile" "$DEST/Makefile"
+
+echo "Copied ublk driver version $VERSION:"
+echo "  $SRC_DRV -> $DEST/ublk_drv.c  (include patched)"
+echo "  $SRC_HDR -> $DEST/uapi/linux/ublk_cmd.h"
+echo "  $SCRIPT_DIR/Makefile -> $DEST/Makefile"

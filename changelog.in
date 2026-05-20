@@ -1,0 +1,5 @@
+ublk-drv-dkms (@@VERSION@@) unstable; urgency=medium
+
+  * DKMS package for the ublk block driver.
+
+ -- Bernd Schubert <bernd.schubert1@gmail.com>  @@DATE@@
