@@ -3030,6 +3030,7 @@ static void ublk_stop_dev(struct ublk_device *ub)
 	 * completions that only arrive after del_gendisk() returns, and
 	 * del_gendisk() itself blocks until all in-flight requests complete.
 	 */
+	mutex_lock(&ub->cancel_mutex);
 	ublk_cancel_dev(ub);
 	ublk_set_canceling(ub, true);
 	for (i = 0; i < ub->dev_info.nr_hw_queues; i++)
