@@ -1,0 +1,76 @@
+name: Build Debian Package for Ubuntu 26.04
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - converted_to_draft
+      - ready_for_review
+    branches:
+      - main
+      - 'release/*'
+      - 'feature/*'
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:26.04
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            build-essential \
+            debhelper \
+            dkms \
+            dh-dkms \
+            fakeroot \
+            devscripts \
+            lintian
+      
+      - name: Set package version
+        id: version
+        run: |
+          VERSION=$(tr -d '[:space:]' < version.txt)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Building version: ${VERSION}"
+      
+      - name: Build Debian package
+        env:
+          UBLKDRV_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          chmod +x build-deb.sh
+          ./build-deb.sh
+
+      - name: Move packages to workspace
+        run: |
+          mkdir -p build-output
+          mv ../*.deb build-output/ || true
+          ls -lh build-output/
+      
+      - name: Run lintian checks
+        run: |
+          lintian build-output/*.deb || true
+        continue-on-error: true
+
+      - name: Upload Debian package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ublk-drv-dkms-ubuntu-26.04-${{ steps.version.outputs.version }}
+          path: build-output/*.deb
+          if-no-files-found: error
+          retention-days: 30
+      
+
