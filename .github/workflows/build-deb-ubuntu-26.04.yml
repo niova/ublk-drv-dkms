@@ -56,22 +56,23 @@ jobs:
         run: |
           chmod +x build-deb.sh
           ./build-deb.sh
-      
-      - name: List generated packages
+
+      - name: Move packages to workspace
         run: |
-          echo "Generated packages:"
-          ls -lh ../*.deb || true
+          mkdir -p build-output
+          mv ../*.deb build-output/ || true
+          ls -lh build-output/
       
       - name: Run lintian checks
         run: |
-          lintian ../*.deb || true
+          lintian build-output/*.deb || true
         continue-on-error: true
-      
+
       - name: Upload Debian package
         uses: actions/upload-artifact@v4
         with:
           name: ublk-drv-dkms-ubuntu-26.04-${{ steps.version.outputs.version }}
-          path: ../*.deb
+          path: build-output/*.deb
           if-no-files-found: error
           retention-days: 30
       
