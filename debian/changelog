@@ -1,11 +1,5 @@
-ublk-drv-dkms (1.1ubuntu1) unstable; urgency=medium
-
-  *  Fix forgotten mutex lock
-
- -- Bernd Schubert <bernd.schubert@fastmail.fm>  Fri, 17 Jul 2026 18:46:13 +0200
-
-ublk-drv-dkms (1.0) unstable; urgency=medium
+ublk-drv-dkms (1.2) unstable; urgency=medium
 
   * DKMS package for the ublk block driver.
 
- -- Bernd Schubert <bernd.schubert1@gmail.com>  Wed, 20 May 2026 22:29:09 +0200
+ -- Bernd Schubert <bernd.schubert1@gmail.com>  Thu, 01 Oct 2026 11:18:49 +0200
