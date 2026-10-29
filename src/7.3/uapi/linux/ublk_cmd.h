@@ -167,6 +167,20 @@ struct ublk_shmem_buf_reg {
 #define	UBLK_U_IO_FETCH_IO_CMDS 	\
 	_IOWR('u', 0x27, struct ublk_batch_io)
 
+/*
+ * Register all buffer pools for one queue. Sent once per queue on
+ * /dev/ublkc* after queue setup (FETCH commands may already be parked), but
+ * before START_DEV and before the first block request. A pool with buf_size
+ * >= max_io_buf_bytes is required.
+ *
+ * The ublksrv_io_cmd.addr field points to a userspace
+ * struct ublk_buf_pools_config describing the queue's arena and tiers.
+ *
+ * Requires UBLK_F_BUF_RINGS.
+ */
+#define	UBLK_U_IO_REGISTER_BUF_POOLS	\
+	_IOWR('u', 0x28, struct ublksrv_io_cmd)
+
 /* only ABORT means that no re-fetch */
 #define UBLK_IO_RES_OK			0
 #define UBLK_IO_RES_NEED_GET_DATA	1
@@ -419,6 +433,35 @@ struct ublk_shmem_buf_reg {
 
 /* ublksrv_io_desc size is specified by ublksrv_ctrl_dev_info's io_desc_size */
 #define UBLK_F_IO_DESC_SIZE (1ULL << 20)
+
+/*
+ * Enable multi-size buffer pools for copy mode. The server registers
+ * multiple buffer pools per queue (each with a different buffer size)
+ * via UBLK_U_IO_REGISTER_BUF_POOLS before START_DEV. At request admission
+ * the kernel reserves the smallest currently available buffer that fits,
+ * borrowing from a larger tier when needed. This eliminates the need for
+ * max-sized buffers on every IO tag. A request that finds no free buffer
+ * waits, in arrival order, on its home tier (the smallest tier that fits
+ * it). A returned buffer serves its own tier's queue first and otherwise
+ * the queue of the largest smaller tier with waiters.
+ *
+ * The initial implementation is limited to the ordinary non-batch copy
+ * path. It is mutually exclusive with batch I/O, user/zero-copy modes,
+ * automatic buffer registration, shared-memory zero copy, NEED_GET_DATA,
+ * quiesce and user recovery.
+ */
+#define UBLK_F_BUF_RINGS	(1ULL << 21)
+
+/*
+ * Pin and vmap the queue's buffer arena at registration time. Requires
+ * UBLK_F_BUF_RINGS. When set, the kernel uses memcpy via the kernel
+ * virtual address instead of copy_to_user/copy_from_user, avoiding
+ * per-IO page table walks. Pages are accounted against RLIMIT_MEMLOCK
+ * (bypassable with CAP_IPC_LOCK). Not offered on CPUs with aliasing data
+ * caches, where the kernel alias and the server's mapping can disagree;
+ * the flag is cleared there and the server falls back to unpinned copies.
+ */
+#define UBLK_F_PINNED_BUFS	(1ULL << 22)
 
 /* device state */
 #define UBLK_S_DEV_DEAD	0
@@ -685,6 +728,36 @@ struct ublk_batch_io {
 	__u8	elem_bytes;
 	__u8	reserved;
 	__u64   reserved2;
+};
+
+#define UBLK_MAX_BUF_POOLS	8
+
+/*
+ * One size tier in a queue's buffer arena. Tiers are ordered by increasing
+ * buffer size and tightly packed in the arena.
+ */
+struct ublk_buf_pool_desc {
+	__u64	offset;		/* byte offset from arena base */
+	__u32	buf_size;	/* bytes per buffer */
+	__u32	nr_bufs;	/* buffers in this tier, a power of two */
+};
+
+/*
+ * Payload for UBLK_U_IO_REGISTER_BUF_POOLS.
+ *
+ * The queue id is supplied in the outer struct ublksrv_io_cmd; its tag and
+ * result fields must be zero. Registration is atomic: either the entire
+ * arena and all tiers are installed, or none are. The arena starts at addr,
+ * has len bytes and is split into nr_pools tightly packed regions described
+ * by pools[].
+ */
+struct ublk_buf_pools_config {
+	__u64	addr;		/* page-aligned userspace arena base */
+	__u64	len;		/* total arena length */
+	__u32	nr_pools;	/* valid entries in pools[] */
+	__u32	flags;		/* reserved, must be 0 */
+	struct ublk_buf_pool_desc pools[UBLK_MAX_BUF_POOLS];
+	__u64	reserved[2];	/* must be 0 */
 };
 
 struct ublk_param_basic {
